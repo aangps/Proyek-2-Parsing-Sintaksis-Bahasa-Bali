@@ -1,42 +1,25 @@
 <?php
+require 'validasi.php';
+$dataKata = [];
+// $hasil = [];
+// $hasil2 = [];
+$validator = [];
+$input = [];
 
-if (isset($_POST['submit'])) {
-    $inputUser = $_POST['input'];
-    $conn = mysqli_connect('153.92.10.74', 'u5030462_tbo', 'tbotbo', 'u5030462_tbo');
-    $hasil = [];
-    function test($input)                                                       //
-    {
-        global $conn;
-        global $hasil;
-        if (empty($input)) {
-            return 0;
-        } else {
-            $input2 = explode(' ', $input);
-            $query = "SELECT * FROM cnf WHERE terminal LIKE BINARY '" . $input2[0] . "%'";
-            $result = mysqli_query($conn, $query);
-            $result = mysqli_fetch_assoc($result);
-            if (is_array($result)) {
-                $str = $result['terminal'];
-                $rule = $result['rule'];
-                $temp = $input;
-                $tempResult = substr($temp, 0, strlen($str));
-                if (strtoupper($str) == strtoupper($tempResult)) {
-                    array_push($hasil, $str);
-                    array_push($hasil, $rule);
-                    return test(substr($input, strlen($str) + 1));
-                } else {
-                    return test(substr($input, strlen($input2[0]) + 1));
-                }
-            } else {
-                $str = '';
-                $rule = '';
-                array_push($hasil, $str);
-                array_push($hasil, $rule);
-                return test(substr($input, strlen($input2[0]) + 1));
-            }
-        }
-    }
-    test($inputUser);
+
+if (isset($_POST['submitSentenceValidation'])) {
+    $input = $_POST['input'];
+    $sentence = explode(PHP_EOL, $input);
+    $hasil = sentenceValidation($input);
+}
+
+if (isset($_POST['submitTextValidation'])) {
+    $input = getSplitText($_POST['text1']);
+    $hasil2 = textValidation($_POST['text1']);
+    $validator = setValidator($_POST['text2']);
+    // var_dump($validator);
+    // var_dump($hasil2);
+    // var_dump($input);
 }
 
 ?>
@@ -50,7 +33,7 @@ if (isset($_POST['submit'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
 
     <title>PROJECT TBO</title>
 </head>
@@ -83,6 +66,17 @@ if (isset($_POST['submit'])) {
     p#result span{
         font-weight: bold;
     }
+    .message{
+        padding: 3px 40px;
+        background-color: #5dca88;
+        cursor: pointer;
+        box-shadow: 0 7px #1a7940;
+    }
+    .message:active{
+        position: relative;
+        top: 7px;
+        box-shadow: none;
+    }
 </style>
 
 <body>
@@ -105,25 +99,52 @@ if (isset($_POST['submit'])) {
                 <div class="col">
                     <div class="card shadow">
                         <div class="card-body">
-                            <h4 class="font-weight-bold mb-3">
-                                Silahkan masukkan kata yang ingin divalidasi
-                            </h4>
-                            <form id="formSearch" class="mb-2 text-center" action="" method="POST">
-                                <div class="row">
-                                    <div class="form-group col-lg-11">
-                                        <input type="text" class="form-control" id="input" aria-describedby="emailHelp" placeholder="Masukkan kalimat bahasa bali" name="input">
-                                    </div>
-                                    <div class="form-group col-lg-1 m-0 p-0">    
-                                        <button id="submit" type="submit" class="btn btn-info px-4" name="submit">Test</button>
+                            <div class="row justify-content-center">
+                                <div class="col-md-5 pt-3 border">
+                                     <h5 class="font-weight-bold mb-3">
+                                        Validasi Berdasarkan Input List Text
+                                    </h5>
+                                    <div class="border-bottom mt-2 mb-3"></div>
+                                    <form action="" class="px-3 py-2" method="POST">
+                                        <div class="form-group">
+                                            <label for="text1" class="font-weight-bolder">Silahkan masukkan list kalimat :</label>
+                                            <textarea name="text1" id="text1" cols="40" rows="5" placeholder="Masukkan list kalimat yang akan divalidasi (Pisahkan dengan enter)" required></textarea>
+                                            <label for="text2" class="mt-3 font-weight-bolder">Silahkan masukkan hasil validasi :</label>
+                                            <textarea name="text2" id="text2" cols="40" rows="5" placeholder="Masukkan list validasi yang seharusnya dari setiap kalimat (Pisahkan dengan enter) ex : Valid | Tidak Valid" required></textarea>
+                                        </div>
+                                        <div class="form-group text-center">    
+                                            <button type="submit" class="btn message" name="submitTextValidation">Validasi</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="col-md-5 offset-1 ">
+                                   <div class="border px-3 py-3">
+                                        <h5 class="font-weight-bold mb-3">
+                                            Validasi Berdasarkan Sentence
+                                        </h5>
+                                        <div class="border-bottom mt-2 mb-3"></div>
+                                        <form id="formSearch" class="mb-2 text-center" action="" method="POST">
+                                            <div class="form-row">
+                                                <div class="form-group col-md-8">
+                                                    <input type="text" class="form-control" id="input" aria-describedby="emailHelp" placeholder="Masukkan kalimat bahasa bali" name="input">
+                                                </div>
+                                                <div class="form-group col-md-4">    
+                                                    <button id="submit" type="submit" class="btn message" name="submitSentenceValidation">Test</button>
+                                                </div>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
-                                
-                                
-                                
-                            </form>
-                            <div class="row justify-content-center">
+                            </div>
+                            <div class="row justify-content-center mt-3 ">
                                 <div class="col-6">
                                     <p id="result" class="text-center"></p>
+                                </div>
+                            </div>
+                            <div class="row justify-content-center mb-3">
+                                <div class="col-11">
+                                    <div id="result2">
+                                    </div>     
                                 </div>
                             </div>
                         </div>
@@ -135,6 +156,10 @@ if (isset($_POST['submit'])) {
     </div>
     <script>
         var grama = {};
+        var validator = [];
+        var dataKata = [];
+        var hasilValidasi = [];
+        var dataInputText = [];
 
         function getRules() {
             let link = 'rule.txt';
@@ -189,6 +214,7 @@ if (isset($_POST['submit'])) {
             }
             return grama;
         }
+
         grama = createRules();
 
         //berfungsi untuk menentukan nilai setiap sel di cyk dimana baris > 0
@@ -235,27 +261,9 @@ if (isset($_POST['submit'])) {
             return tab;
         }
 
-        //cyk algorytm
-        var cyk = function(gram) {
-            var len = <?= count($hasil) / 2 ?>;
-            //kami mengisi tabel dengan spasi kosong
-            var tab = new Array(len);
-            for (var t = 0; t < len; t++) {
-                tab[t] = new Array(0);
-            }
 
-            // menentukan baris pertama cyk
-            <?php
-            $index = 0;
-            for ($z = 0; $z < count($hasil) / 2; $z++) :
-            ?>
-
-                tab[0][<?= $z ?>] = '<?= $hasil[$z + $z + 1] ?>'
-
-            <?php endfor; ?>
-
-            tab = convert(tab);
-            //iterasi di atas baris
+        var cyk = function(gram,tab){
+            let len = dataKata.length/2;
             for (var j = 1; j <= len - 1; j++) {
                 //iterasi kolom
                 for (var i = 0; i <= len - j - 1; i++) {
@@ -270,28 +278,129 @@ if (isset($_POST['submit'])) {
                     }
                 }
             }
-
             for (var m in tab[len - 1][0]) {
                 if (tab[len - 1][0][m] === 'A') {
                     return true;
                 }
             }
             return false;
+        }
 
-        };
+        function setTab(dataKata){
+            var len = dataKata.length/2;
+            let tab = new Array(len);
+            for (var t = 0; t < len; t++) {
+                tab[t] = new Array(0);
+            }
+            
+            for(let i=0;i<len;i++){
+                tab[0][i]=dataKata[i+i+1];
+            }
+            return convert(tab);
+        }
 
-        var test = function() {
+        function doCYK(dataKata){
+            return cyk(grama,setTab(dataKata));
+        }
+
+        function case1(input,dataKata) {
             try {
-                if (cyk(grama)) {
-                   $('#result').html('"<?= $inputUser ?>" <br> Merupakan <span>Kalimat Baku</span>');
+                if (doCYK(dataKata)) {
+                   $('#result').html('"'+input+'" <br> Merupakan <span>Kalimat Baku</span>');
                 } else {
-                    $('#result').html('"<?= $inputUser ?>" <br> Merupakan <span>Kalimat Tidak Baku</span>');
+                    $('#result').html('"'+input+'" <br> Merupakan <span>Kalimat Tidak Baku</span>');
                 }
             } catch (error) {
-                $('#result').html('"<?= $inputUser ?>" <br> Merupakan <span>Kalimat Tidak Baku</span>');
+                $('#result').html('"'+input+'" <br> Merupakan <span>Kalimat Tidak Baku</span>');
             }
         };
-        test();
+
+        function case2(dataKata)
+        {
+            try {
+                if(doCYK(dataKata)){
+                    return 'Valid';
+                }else{
+                    return 'Tidak Valid';
+                }
+            } catch (error) {
+               return 'Tidak Valid';
+            }
+        }
+        
+        function setValidator() { 
+            <?php for ($i = 0; $i<count($validator);$i++):?>
+                validator.push('<?= $validator[$i]?>');
+            <?php endfor; ?>
+            return validator;
+        }
+
+        function setTable(a,b,c,d){
+            $('#tBody').append('<tr><td class="text-center">'+(a+1)+'</td><td>'+b+'</td><td>'+c+'</td><td>'+d+'</td></tr>');
+        }
+
+        function setAkurasi(a,b){
+            var totalA = a.length;
+            var totalB = b.length;
+            var count = 0;
+
+            for(let i=0;i<totalA;i++){
+                if(a[i]==b[i]){
+                    count++;
+                }
+            }
+            var persentase = count/totalA*100;
+            $('#tBody').append(' <tr><td colspan="2" class="font-weight-bold text-center">Hasil Akurasi Dengan Menambahkan Data</td><td colspan="2" class="font-weight-bold text-center">'+count+'/'+totalA+'*100='+persentase+'%</td></tr>');
+        }
+
+        function headerValidasi(){
+            $('#result2').append('<h5 class="font-weight-bold mb-3 text-center">Hasil Validasi</h5><table class="table table-hover table-bordered"><thead><tr><th scope="col" class="text-center">Nomor</th><th scope="col" class="text-center">Kalimat</th><th scope="col" class="text-center">Validasi (System)</th><th scope="col" class="text-center">Validasi (Asli)</th></tr></thead><tbody id="tBody"></tbody></table>');
+        }
+
+        <?php
+            if (isset($hasil)) {
+                echo "dataKata = [];";
+                $dataKata = $hasil;
+                for ($i=0;$i<count($dataKata);$i++) {
+                    echo "
+                        dataKata.push('$dataKata[$i]');
+                    ";
+                }
+                echo "
+                case1('".$input."',dataKata);
+                ";
+            } elseif (isset($hasil2)) {
+                echo "
+                    dataInputText = [];
+                    setValidator();
+                    headerValidasi();
+                ";
+
+                for ($k=0;$k<count($input);$k++) {
+                    echo "
+                        dataInputText.push('$input[$k]');
+                    ";
+                }
+
+                for ($i = 0;$i<count($hasil2);$i++) {
+                    echo "dataKata = [];";
+                    $dataKata = $hasil2[$i];
+                    for ($j=0;$j<count($dataKata);$j++) {
+                        echo "
+                            
+                            dataKata.push('$dataKata[$j]');
+                         ";
+                    }
+                    echo "
+                        hasilValidasi.push(case2(dataKata));
+                        setTable(".$i.",dataInputText[".$i."],hasilValidasi[".$i."],validator[".$i."]);
+                    ";
+                }
+                echo "
+                setAkurasi(hasilValidasi,validator);
+                ";
+            }
+        ?>
     </script>
 
     <!-- Optional JavaScript -->
